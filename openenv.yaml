@@ -1,0 +1,182 @@
+# Student Task Manager – OpenEnv Configuration
+# ============================================
+# Full specification for the Student Task Manager reinforcement learning environment.
+
+metadata:
+  name: "student-task-manager"
+  version: "1.0.0"
+  description: >
+    A production-grade OpenEnv environment simulating a real academic workflow
+    where an AI agent helps a student manage assignments, prioritize tasks,
+    and schedule work efficiently across multiple days with limited daily hours.
+  author: "OpenEnv Team"
+  tags:
+    - scheduling
+    - prioritization
+    - academic
+    - time-management
+    - rl-environment
+
+environment:
+  class: "env.environment.StudentTaskManagerEnv"
+  scenarios:
+    - id: easy
+      description: "4 independent tasks with comfortable deadlines and no dependencies."
+      total_days: 8
+      max_hours_per_day: 8.0
+      max_steps: 60
+    - id: medium
+      description: "6 tasks with overlapping deadlines requiring careful prioritization."
+      total_days: 9
+      max_hours_per_day: 7.0
+      max_steps: 100
+    - id: hard
+      description: >
+        8 tasks with dependency chains, tight deadlines, and only 6 working hours/day.
+        Requires optimal sequencing to avoid cascading failures.
+      total_days: 10
+      max_hours_per_day: 6.0
+      max_steps: 150
+
+  reproducibility:
+    default_seed: 42
+    deterministic: true
+
+action_space:
+  type: structured
+  actions:
+    - name: select_task
+      description: "Set the active task the agent wants to work on."
+      required_fields: [task_id]
+      optional_fields: []
+
+    - name: allocate_time
+      description: "Spend hours working on a task, advancing its progress."
+      required_fields: [task_id, hours]
+      optional_fields: []
+      constraints:
+        hours:
+          min: 0.1
+          max: 8.0
+
+    - name: mark_complete
+      description: "Manually mark a task as done (requires ≥80% progress)."
+      required_fields: [task_id]
+      optional_fields: []
+
+    - name: skip_day
+      description: "Skip to the next simulation day (incurs idle penalty)."
+      required_fields: []
+      optional_fields: []
+
+    - name: reorder_priority
+      description: "Reorder the agent's task priority queue."
+      required_fields: [priority_order]
+      optional_fields: []
+
+observation_space:
+  fields:
+    - name: current_day
+      type: integer
+      description: "Current simulation day (1-indexed)"
+    - name: total_days
+      type: integer
+      description: "Total days in the episode"
+    - name: remaining_time_today
+      type: float
+      description: "Hours available today"
+    - name: tasks
+      type: list[TaskSummary]
+      description: "All tasks with status, deadline, progress, etc."
+    - name: completed_task_ids
+      type: list[str]
+    - name: overdue_task_ids
+      type: list[str]
+    - name: pending_task_ids
+      type: list[str]
+    - name: urgent_tasks
+      type: list[str]
+      description: "Task IDs with deadlines within 2 days"
+    - name: active_task_id
+      type: optional[str]
+    - name: episode_score_so_far
+      type: float
+      range: [0.0, 1.0]
+    - name: cumulative_reward
+      type: float
+    - name: steps_taken
+      type: integer
+    - name: last_action_status
+      type: string
+    - name: last_action_message
+      type: string
+
+reward:
+  range: [-0.30, 1.0]
+  type: dense
+  components:
+    - name: task_completion_bonus
+      value: 0.40
+      trigger: "Task fully completed"
+    - name: early_completion_bonus
+      value: 0.0 - 0.15
+      trigger: "Task completed before deadline"
+    - name: progress_reward
+      value: 0.025 per hour
+      trigger: "Time allocated to a task"
+    - name: priority_alignment_reward
+      value: 0.0 - 0.10
+      trigger: "Working on high-importance or urgent tasks"
+    - name: deadline_miss_penalty
+      value: -0.30
+      trigger: "Task deadline passes without completion"
+    - name: idle_penalty
+      value: -0.05
+      trigger: "skip_day action"
+    - name: dependency_violation_penalty
+      value: -0.10
+      trigger: "Attempting to work on a task with unmet dependencies"
+    - name: low_priority_penalty
+      value: -0.02 per hour
+      trigger: "Working low-priority tasks while urgent tasks exist"
+
+termination:
+  conditions:
+    - "All tasks completed → done=True"
+    - "Maximum steps reached → done=True"
+    - "Maximum days exceeded → done=True"
+    - "More than 50% of tasks overdue → done=True"
+
+grading:
+  score_range: [0.0, 1.0]
+  weights:
+    completion_rate: 0.40
+    deadline_adherence: 0.30
+    scheduling_efficiency: 0.20
+    dependency_adherence: 0.10
+  deterministic: true
+
+api:
+  endpoints:
+    - path: /reset
+      method: POST
+      description: "Reset environment to initial state"
+    - path: /step
+      method: POST
+      description: "Execute one action and get observation, reward, done, info"
+    - path: /state
+      method: GET
+      description: "Return full serialized internal environment state"
+    - path: /health
+      method: GET
+      description: "Health check — returns {status: ok}"
+    - path: /scenarios
+      method: GET
+      description: "List all available scenarios and their configurations"
+    - path: /tasks
+      method: GET
+      description: "List all task names (used by openenv validate)"
+
+docker:
+  port: 8000
+  base_image: "python:3.11-slim"

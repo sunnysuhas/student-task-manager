@@ -1,0 +1,56 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.backends.legacy:build"
+
+[project]
+name = "student-task-manager-env"
+version = "1.0.0"
+description = "A production-grade OpenEnv environment simulating real-world academic task scheduling."
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.11"
+keywords = ["openenv", "reinforcement-learning", "scheduling", "academic", "rl-environment"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dependencies = [
+    "fastapi>=0.111.0",
+    "uvicorn[standard]>=0.29.0",
+    "pydantic>=2.7.0",
+    "requests>=2.31.0",
+    "openai>=1.30.0",
+    "pyyaml>=6.0.1",
+    "openenv-core>=0.2.0",
+]
+
+[project.scripts]
+server = "server.app:main"
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "httpx>=0.27.0",
+]
+
+[project.urls]
+Homepage = "https://huggingface.co/spaces/student-task-manager-env"
+Repository = "https://huggingface.co/spaces/student-task-manager-env"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["env*"]
+
+[tool.openenv]
+name = "student-task-manager"
+version = "1.0.0"
+benchmark = "student-task-manager"
+tasks = ["easy", "medium", "hard"]
+entry_point = "main:app"
+reset_endpoint = "/reset"
+step_endpoint = "/step"
+state_endpoint = "/state"
+port = 8000
