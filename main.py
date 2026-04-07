@@ -95,6 +95,16 @@ class StepResponse(BaseModel):
 # Endpoints
 # ---------------------------------------------------------------------------
 
+@app.get("/")
+def root() -> Dict[str, str]:
+    """Root landing page."""
+    return {
+        "message": "Student Task Manager Environment is running!",
+        "documentation": "Visit /docs for the interactive API explorer",
+        "status": "healthy"
+    }
+
+
 @app.get("/health")
 def health() -> Dict[str, str]:
     """Health check endpoint. Returns status=healthy (required by openenv validate)."""

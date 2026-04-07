@@ -25,6 +25,7 @@ from typing import Any, Dict, List, Optional
 import requests
 
 try:
+    import openai
     from openai import OpenAI
 except ImportError:
     print("openai package not installed. Run: pip install openai", file=sys.stderr)
@@ -53,12 +54,32 @@ ENV_SERVER_URL: str = os.environ.get("ENV_SERVER_URL", "http://localhost:8000")
 
 BENCHMARK: str = "student-task-manager"
 SEED: int = int(os.environ.get("ENV_SEED", "42"))
-MAX_RETRIES: int = 3
-STEP_DELAY: float = 0.3   # seconds between steps
+MAX_RETRIES: int = 5
+STEP_DELAY: float = 12.5   # 12.5s delay fits 5 requests per minute (Gemini free tier)
 SUCCESS_SCORE_THRESHOLD: float = 0.4  # score >= this → success
 
 # Build OpenAI client for LLM calls
 llm_client = OpenAI(base_url=API_BASE_URL, api_key=API_KEY)
+
+
+def robust_request(method: str, url: str, **kwargs) -> requests.Response:
+    """Perform a request with retries and exponential backoff."""
+    retries = 5
+    backoff = 2.0
+    for i in range(retries):
+        try:
+            resp = requests.request(method, url, **kwargs)
+            if resp.status_code == 503:  # HF Space waking up
+                raise requests.exceptions.RequestException("Space is starting up...")
+            resp.raise_for_status()
+            return resp
+        except (requests.exceptions.RequestException, requests.exceptions.ConnectionError) as e:
+            if i == retries - 1:
+                raise
+            sleep_time = backoff * (2 ** i)
+            print(f"  [DEBUG] API call failed ({e}). Retrying in {sleep_time}s... ({i+1}/{retries})", file=sys.stderr)
+            time.sleep(sleep_time)
+    raise RuntimeError("Request failed after retries")
 
 
 # ---------------------------------------------------------------------------
@@ -89,23 +110,23 @@ def log_end(success: bool, steps: int, score: float, rewards: List[float]) -> No
 
 def env_reset(scenario: str, seed: int = SEED) -> Dict[str, Any]:
     """POST /reset on the environment server."""
-    resp = requests.post(
+    resp = robust_request(
+        "POST",
         f"{ENV_SERVER_URL}/reset",
         json={"scenario": scenario, "seed": seed},
-        timeout=30,
+        timeout=45,
     )
-    resp.raise_for_status()
     return resp.json()
 
 
 def env_step(action: Dict[str, Any]) -> Dict[str, Any]:
     """POST /step on the environment server."""
-    resp = requests.post(
+    resp = robust_request(
+        "POST",
         f"{ENV_SERVER_URL}/step",
         json={"action": action},
-        timeout=30,
+        timeout=45,
     )
-    resp.raise_for_status()
     return resp.json()
 
 
@@ -133,9 +154,24 @@ STRATEGY GUIDELINES:
 - Mark tasks complete when progress >= 80%
 - Only use skip_day as a last resort
 
-IMPORTANT: Output ONLY a single JSON object (the action). No explanation, no markdown.
+FORMATTING:
+- You MUST output ONLY raw JSON. No conversational text.
+- Do not add explanations.
+- If you cannot use a tool, use {"action_type": "skip_day"}.
+
 Example: {"action_type": "allocate_time", "task_id": "M1", "hours": 2.0}
 """
+
+
+def clean_json_response(content: str) -> str:
+    """Extract raw JSON from common verbose LLM outputs."""
+    content = content.replace("```json", "").replace("```", "").strip()
+    # Find the first { and last } to handle trailing filler
+    start = content.find("{")
+    end = content.rfind("}")
+    if start != -1 and end != -1:
+        return content[start:end+1]
+    return content
 
 
 def build_user_prompt(obs: Dict[str, Any], step_num: int) -> str:
@@ -189,23 +225,25 @@ def get_llm_action(
                 max_tokens=256,
             )
             content = (response.choices[0].message.content or "").strip()
-            # Strip markdown code fences if present
-            if content.startswith("```"):
-                lines = content.split("```")
-                content = lines[1] if len(lines) > 1 else ""
-                if content.startswith("json"):
-                    content = content[4:]
-                content = content.strip()
+            content = clean_json_response(content)
+            
             action = json.loads(content)
             conversation.append({"role": "assistant", "content": json.dumps(action)})
             return action, None
+        except openai.RateLimitError as e:
+            last_error = f"Rate limit reached: {e}"
+            # Extract retry-after from error or default to 30s
+            wait = 30.0
+            print(f"  [DEBUG] Rate limit (429). Waiting {wait}s before retry {attempt+1}/{MAX_RETRIES}...", file=sys.stderr)
+            time.sleep(wait)
         except json.JSONDecodeError as e:
             last_error = f"JSON parse error: {e}"
             print(f"  [DEBUG] LLM returned invalid JSON (attempt {attempt+1}): {e}", file=sys.stderr)
+            time.sleep(1.0)
         except Exception as e:
             last_error = str(e)
             print(f"  [DEBUG] LLM API error (attempt {attempt+1}): {e}", file=sys.stderr)
-            time.sleep(1.0)
+            time.sleep(2.0)
 
     fallback = {"action_type": "skip_day"}
     conversation.append({"role": "assistant", "content": json.dumps(fallback)})
