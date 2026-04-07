@@ -38,7 +38,7 @@ This environment models that challenge precisely — with a dense reward system,
 │   ├── environment.py     # Core environment (reset/step/state)
 │   ├── tasks.py           # EASY / MEDIUM / HARD task scenarios
 │   └── grader.py          # Deterministic episode grader
-├── server.py              # FastAPI REST API server
+├── main.py              # FastAPI REST API server
 ├── inference.py           # Baseline LLM inference script
 ├── openenv.yaml           # OpenEnv specification
 ├── requirements.txt
@@ -174,16 +174,16 @@ touch env/__init__.py
 ### Start the API Server
 
 ```bash
-python server.py
+python main.py
 # Or with uvicorn directly:
-uvicorn server:app --host 0.0.0.0 --port 8000 --reload
+uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
 ### Run the Inference Script
 
 ```bash
 # 1. Start the environment server (in a separate terminal)
-python server.py
+python main.py
 
 # 2. Run the baseline inference against all 3 tasks
 export API_BASE_URL=https://api.openai.com/v1   # LLM endpoint (OpenAI-compatible)
