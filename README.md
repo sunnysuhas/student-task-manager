@@ -186,9 +186,9 @@ uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 python main.py
 
 # 2. Run the baseline inference against all 3 tasks
-export API_BASE_URL=https://api.openai.com/v1   # LLM endpoint (OpenAI-compatible)
+export API_BASE_URL=$API_BASE_URL               # LLM endpoint (Proxy)
 export MODEL_NAME=gpt-4o-mini                   # Model identifier
-export HF_TOKEN=your_api_key_here               # HF token or OpenAI key
+export API_KEY=$API_KEY                         # Proxy API key
 export ENV_SERVER_URL=http://localhost:8000      # Environment server URL
 
 python inference.py                             # Runs easy + medium + hard
@@ -226,9 +226,9 @@ docker run -p 8000:8000 -e ENV_SCENARIO=hard student-task-manager
 
 # Then run inference against it:
 export ENV_SERVER_URL=http://localhost:8000
-export API_BASE_URL=https://api.openai.com/v1
+export API_BASE_URL=$API_BASE_URL
 export MODEL_NAME=gpt-4o-mini
-export HF_TOKEN=sk-...
+export API_KEY=$API_KEY
 python inference.py
 ```
 
@@ -259,9 +259,9 @@ The Dockerfile exposes port `8000` and responds to `/reset` and `/step` per Open
 # The environment server runs on HF Space (docker)
 # The inference script calls the LLM separately
 export ENV_SERVER_URL=https://your-space.hf.space  # Environment server on HF
-export API_BASE_URL=https://router.huggingface.co/v1  # LLM API endpoint
+export API_BASE_URL=$API_BASE_URL  # LLM API endpoint
 export MODEL_NAME=Qwen/Qwen2.5-72B-Instruct
-export HF_TOKEN=hf_...
+export API_KEY=$API_KEY
 
 python inference.py
 ```
