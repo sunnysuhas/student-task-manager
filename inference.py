@@ -37,10 +37,7 @@ except ImportError:
 # ---------------------------------------------------------------------------
 
 # LLM endpoint — used by the OpenAI client (OpenAI-compatible)
-# Default points to HF inference router. Override with API_BASE_URL env var.
-API_BASE_URL = os.environ.get("API_BASE_URL", "https://router.huggingface.co/v1")
 MODEL_NAME = os.environ.get("MODEL_NAME", "Qwen/Qwen2.5-72B-Instruct")
-API_KEY = os.environ.get("API_KEY", os.environ.get("HF_TOKEN", ""))
 
 # Environment server — separate from LLM endpoint
 ENV_SERVER_URL: str = os.environ.get("ENV_SERVER_URL", "http://localhost:8000")
@@ -52,16 +49,10 @@ STEP_DELAY: float = 12.5   # 12.5s delay fits 5 requests per minute (Gemini free
 SUCCESS_SCORE_THRESHOLD: float = 0.4  # score >= this → success
 
 # Build OpenAI client for LLM calls
-try:
-    llm_client = OpenAI(
-        base_url=os.environ["API_BASE_URL"],
-        api_key=os.environ["API_KEY"]
-    )
-except KeyError:
-    llm_client = OpenAI(
-        base_url=API_BASE_URL,
-        api_key=API_KEY
-    )
+llm_client = OpenAI(
+    base_url=os.environ["API_BASE_URL"],
+    api_key=os.environ["API_KEY"]
+)
 
 
 def robust_request(method: str, url: str, **kwargs) -> requests.Response:
