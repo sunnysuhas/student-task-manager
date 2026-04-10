@@ -9,7 +9,7 @@ from env.environment import StudentTaskManagerEnv
 from env.models import Action, ActionType
 from env.grader import grade
 
-errors = []
+errors = [] 
 
 def check(condition, msg):
     if not condition:
