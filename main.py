@@ -175,7 +175,7 @@ def schema() -> Dict[str, Any]:
                 "pending_task_ids": {"type": "array", "items": {"type": "string"}},
                 "urgent_tasks": {"type": "array", "items": {"type": "string"}},
                 "active_task_id": {"type": ["string", "null"]},
-                "episode_score_so_far": {"type": "number", "minimum": 0.0, "maximum": 1.0},
+                "episode_score_so_far": {"type": "number", "minimum": 0.01, "maximum": 0.99},
                 "steps_taken": {"type": "integer"},
                 "max_steps": {"type": "integer"},
                 "cumulative_reward": {"type": "number"},
