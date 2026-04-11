@@ -106,13 +106,13 @@ class StudentTaskManagerEnv:
 
         if s.episode_done:
             obs = self._build_observation("error", "Episode already done. Call reset().")
-            reward = RewardBreakdown(total=0.01)
+            reward = RewardBreakdown(total=1e-6)
             return obs, reward, True, {"error": "Episode done"}
 
         # Parse action
         parsed_action, parse_error = self._parse_action(action)
         if parse_error:
-            reward = RewardBreakdown(total=0.01, raw_total=0.0)
+            reward = RewardBreakdown(total=1e-6, raw_total=0.0)
             s.steps_taken += 1
             s.action_history.append({"step": s.steps_taken, "action": str(action), "error": parse_error})
             obs = self._build_observation("invalid", parse_error)
@@ -193,12 +193,12 @@ class StudentTaskManagerEnv:
         task_id = action.task_id
 
         if task_id not in s.tasks:
-            r = RewardBreakdown(total=0.01, raw_total=0.0)
+            r = RewardBreakdown(total=1e-6, raw_total=0.0)
             return r, "error", f"Task '{task_id}' not found.", {}
 
         task = s.tasks[task_id]
         if task.is_completed:
-            r = RewardBreakdown(total=0.01, raw_total=0.0)
+            r = RewardBreakdown(total=1e-6, raw_total=0.0)
             return r, "warning", f"Task '{task_id}' is already completed.", {}
 
         # Check dependencies
@@ -206,7 +206,7 @@ class StudentTaskManagerEnv:
         if not dep_ok:
             penalty = PENALTY_DEP_VIOLATION
             raw = penalty
-            total = max(0.01, min(0.99, 0.5 + penalty))
+            total = safe_score(0.5 + penalty)
             r = RewardBreakdown(total=total, raw_total=raw, dependency_violation_penalty=penalty)
             return r, "dependency_blocked", (
                 f"Cannot select '{task_id}': unmet dependencies {unmet}."
@@ -224,13 +224,13 @@ class StudentTaskManagerEnv:
         hours = action.hours or 1.0
 
         if task_id not in s.tasks:
-            r = RewardBreakdown(total=0.01, raw_total=0.0)
+            r = RewardBreakdown(total=1e-6, raw_total=0.0)
             return r, "error", f"Task '{task_id}' not found.", {}
 
         task = s.tasks[task_id]
 
         if task.is_completed:
-            r = RewardBreakdown(total=0.01, raw_total=0.0)
+            r = RewardBreakdown(total=1e-6, raw_total=0.0)
             return r, "warning", f"Task '{task_id}' already completed, cannot allocate time.", {}
 
         # Check dependencies
@@ -238,7 +238,7 @@ class StudentTaskManagerEnv:
         if not dep_ok:
             penalty = PENALTY_DEP_VIOLATION
             raw = penalty
-            total = max(0.01, min(0.99, 0.5 + penalty))
+            total = safe_score(0.5 + penalty)
             r = RewardBreakdown(total=total, raw_total=raw, dependency_violation_penalty=penalty)
             return r, "dependency_blocked", (
                 f"Task '{task_id}' is blocked by {unmet}."
@@ -246,7 +246,7 @@ class StudentTaskManagerEnv:
 
         # Cap hours to available time today and remaining task hours
         effective_hours = min(hours, s.remaining_time_today, task.remaining_hours + 0.1)
-        effective_hours = max(0.01, effective_hours)
+        effective_hours = max(1e-6, effective_hours)
 
         # Update task progress
         progress_delta = min(
@@ -269,7 +269,7 @@ class StudentTaskManagerEnv:
         raw, breakdown_kwargs = self._compute_allocate_reward(
             task, effective_hours, just_completed, s
         )
-        total = max(0.01, min(0.99, raw))
+        total = safe_score(raw)
         r = RewardBreakdown(total=total, raw_total=raw, **breakdown_kwargs)
         msg = (
             f"Allocated {effective_hours:.2f}h to '{task_id}'. "
@@ -285,16 +285,16 @@ class StudentTaskManagerEnv:
         task_id = action.task_id
 
         if task_id not in s.tasks:
-            r = RewardBreakdown(total=0.01, raw_total=0.0)
+            r = RewardBreakdown(total=1e-6, raw_total=0.0)
             return r, "error", f"Task '{task_id}' not found.", {}
 
         task = s.tasks[task_id]
         if task.is_completed:
-            r = RewardBreakdown(total=0.01, raw_total=0.0)
+            r = RewardBreakdown(total=1e-6, raw_total=0.0)
             return r, "warning", f"Task '{task_id}' already marked complete.", {}
 
         if task.progress < 80.0:
-            r = RewardBreakdown(total=0.01, raw_total=0.0)
+            r = RewardBreakdown(total=1e-6, raw_total=0.0)
             return r, "error", (
                 f"Task '{task_id}' only {task.progress:.1f}% done. "
                 "Must reach ≥80% before marking complete."
@@ -309,7 +309,7 @@ class StudentTaskManagerEnv:
         completion_bonus = REWARD_TASK_COMPLETE
         early_bonus = min(REWARD_EARLY_BONUS_MAX, days_early * 0.05) if on_time else 0.0
         raw = completion_bonus + early_bonus
-        total = max(0.01, min(0.99, raw))
+        total = safe_score(raw)
 
         r = RewardBreakdown(
             total=total,
@@ -329,7 +329,7 @@ class StudentTaskManagerEnv:
         # Advance to next day
         self._end_day()
         penalty = PENALTY_IDLE
-        total = max(0.01, min(0.99, 0.5 + penalty))  # 0.45 – slight penalty
+        total = safe_score(0.5 + penalty)  # 0.45 – slight penalty
         r = RewardBreakdown(total=total, raw_total=penalty, idle_penalty=penalty)
         return r, "success", f"Skipped to day {s.current_day}.", {}
 
@@ -342,7 +342,7 @@ class StudentTaskManagerEnv:
         # Validate all IDs exist
         unknown = [tid for tid in new_order if tid not in s.tasks]
         if unknown:
-            r = RewardBreakdown(total=0.01, raw_total=0.0)
+            r = RewardBreakdown(total=1e-6, raw_total=0.0)
             return r, "error", f"Unknown task IDs in priority order: {unknown}.", {}
 
         # Check that all tasks are included (warn but don't fail if some missing)
@@ -513,7 +513,7 @@ class StudentTaskManagerEnv:
 
         episode_score = s.cumulative_reward / max(1, s.steps_taken)
         raw_episode_score = s.cumulative_reward / max(1, s.steps_taken)
-        safe_episode_score = round(max(0.01, min(0.99, raw_episode_score)), 4)
+        safe_episode_score = round(safe_score(raw_episode_score), 4)
 
         return Observation(
             current_day=s.current_day,

@@ -240,11 +240,11 @@ def step(request: StepRequest) -> StepResponse:
         raise HTTPException(status_code=400, detail=str(e))
 
     # ✅ ADDED: safe clamp at the API boundary — last line of defense
-    safe_reward = max(0.01, min(0.99, reward_breakdown.total))
+    safe_reward = max(1e-6, min(1.0 - 1e-6, reward_breakdown.total))
 
     # ✅ ADDED: clamp final_score inside info too
     if "final_score" in info:
-        info["final_score"] = max(0.01, min(0.99, float(info["final_score"])))
+        info["final_score"] = max(1e-6, min(1.0 - 1e-6, float(info["final_score"])))
     if "episode_grade" in info and "score" in info["episode_grade"]:
         info["episode_grade"]["score"] = max(0.01, min(0.99, float(info["episode_grade"]["score"])))
 

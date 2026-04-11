@@ -28,8 +28,8 @@ from openai import OpenAI  # only this — no "import openai"
 
 
 def _safe_score(v: float) -> float:
-    """Score must be strictly inside (0.01, 0.99) — never exactly 0.01 or 0.99."""
-    return round(max(0.01, min(0.99, float(v))), 4)
+    epsilon = 1e-6
+    return round(max(epsilon, min(1.0 - epsilon, float(v))), 6)
 
 
 # ---------------------------------------------------------------------------

@@ -195,7 +195,7 @@ class Observation(BaseModel):
 class RewardBreakdown(BaseModel):
     """Detailed breakdown of the reward signal."""
 
-    total: float = Field(default=0.01, description="Total reward, strictly in (0.01, 0.99)")
+    total: float = Field(default=1e-6, description="Total reward, strictly in (0.01, 0.99)")
 
     task_completion_bonus: float = Field(default=0.0, description="Reward for completing a task")
     early_completion_bonus: float = Field(default=0.0, description="Extra reward for completing before deadline")

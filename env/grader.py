@@ -16,6 +16,10 @@ from typing import Any, Dict, List, Tuple
 
 from env.models import EnvironmentState, Task
 
+def safe_score(v: float) -> float:
+    epsilon = 1e-6
+    return max(epsilon, min(1.0 - epsilon, float(v)))
+
 
 # ---------------------------------------------------------------------------
 # Weight constants (must sum to 1.0)
@@ -37,7 +41,7 @@ def _completion_score(tasks: Dict[str, Task]) -> Tuple[float, Dict[str, Any]]:
     Returns value in [0, 1].
     """
     if not tasks:
-        return 0.01, {}
+        return 1e-6, {}
 
     total = len(tasks)
     full_complete = sum(1 for t in tasks.values() if t.is_completed)
@@ -48,7 +52,7 @@ def _completion_score(tasks: Dict[str, Task]) -> Tuple[float, Dict[str, Any]]:
     )
 
     raw = (full_complete + partial_credit * 0.5) / total
-    score = max(0.01, min(0.99, raw))
+    score = safe_score(raw)
 
     details = {
         "total_tasks": total,
@@ -70,7 +74,7 @@ def _deadline_score(tasks: Dict[str, Task], total_days: int) -> Tuple[float, Dic
     Returns value in [0, 1].
     """
     if not tasks:
-        return 0.01, {}
+        return 1e-6, {}
 
     task_scores = []
     details_list = []
@@ -81,24 +85,24 @@ def _deadline_score(tasks: Dict[str, Task], total_days: int) -> Tuple[float, Dic
                 # On-time bonus: earlier → higher score
                 days_early = t.deadline_day - t.completion_day
                 bonus = min(0.2, days_early * 0.05)
-                ts = min(0.99, 1.0 + bonus)
+                ts = min(1 - 1e-6, 1.0 + bonus)
             else:
                 # Late completion – decay by days late
                 days_late = (t.completion_day or total_days) - t.deadline_day
-                ts = max(0.01, 1.0 - days_late * 0.2)
+                ts = max(1e-6, 1.0 - days_late * 0.2)
             details_list.append({"task_id": t.task_id, "deadline_score": round(ts, 3), "status": "completed"})
         elif t.is_overdue:
-            ts = 0.01
-            details_list.append({"task_id": t.task_id, "deadline_score": 0.01, "status": "overdue"})
+            ts = 1e-6
+            details_list.append({"task_id": t.task_id, "deadline_score": 1e-6, "status": "overdue"})
         else:
             # In progress but not overdue – give partial credit proportional to progress
-            ts = max(0.01, (t.progress / 100.0) * 0.3)
+            ts = max(1e-6, (t.progress / 100.0) * 0.3)
             details_list.append({"task_id": t.task_id, "deadline_score": round(ts, 3), "status": "incomplete"})
 
         task_scores.append(ts)
 
-    score = sum(task_scores) / len(task_scores) if task_scores else 0.01
-    return round(max(0.01, min(0.99, score)), 4), {"per_task": details_list}
+    score = sum(task_scores) / len(task_scores) if task_scores else 1e-6
+    return round(max(1e-6, min(1 - 1e-6, score)), 4), {"per_task": details_list}
 
 
 def _efficiency_score(state: EnvironmentState) -> Tuple[float, Dict[str, Any]]:
@@ -111,12 +115,12 @@ def _efficiency_score(state: EnvironmentState) -> Tuple[float, Dict[str, Any]]:
     total_available = state.total_days * state.max_hours_per_day
     total_worked = sum(t.hours_worked for t in state.tasks.values())
 
-    utilization = min(0.99, total_worked / total_available) if total_available > 0 else 0.01
+    utilization = min(1 - 1e-6, total_worked / total_available) if total_available > 0 else 1e-6
 
     # Priority alignment: reward if high-importance tasks received more hours proportionally
     tasks = list(state.tasks.values())
     if not tasks:
-        return 0.01, {}
+        return 1e-6, {}
 
     # Expected hours distribution based on importance
     total_importance = sum(t.importance for t in tasks)
@@ -130,7 +134,7 @@ def _efficiency_score(state: EnvironmentState) -> Tuple[float, Dict[str, Any]]:
             alignment_score += max(0, 1.0 - deviation * 5.0) / len(tasks)
 
     score = utilization * 0.5 + alignment_score * 0.5
-    score = max(0.01, min(0.99, score))
+    score = max(1e-6, min(1 - 1e-6, score))
 
     details = {
         "total_available_hours": round(total_available, 2),
@@ -156,12 +160,12 @@ def _dependency_score(
     total_steps = len(action_history)
 
     if total_steps == 0:
-        return 0.99, {"violations": 0, "total_steps": 0}
+        return 1 - 1e-6, {"violations": 0, "total_steps": 0}
 
     violation_rate = violations / total_steps
     # Sigmoid-style decay: few violations → near 1, many → near 0
     score = math.exp(-violation_rate * 5.0)
-    score = max(0.01, min(0.99, score))
+    score = max(1e-6, min(1 - 1e-6, score))
 
     return round(score, 4), {
         "dependency_violations": violations,
@@ -200,7 +204,7 @@ def grade(state: EnvironmentState) -> Dict[str, Any]:
     )
 
     # Clamp to strictly within (0, 1)
-    final_score = round(max(0.01, min(0.99, raw_score)), 4)
+    final_score = round(safe_score(raw_score), 6)
 
     return {
         "score": final_score,
