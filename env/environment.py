@@ -512,6 +512,8 @@ class StudentTaskManagerEnv:
         urgent_ids = [t.task_id for t in s.urgent_tasks]
 
         episode_score = s.cumulative_reward / max(1, s.steps_taken)
+        raw_episode_score = s.cumulative_reward / max(1, s.steps_taken)
+        safe_episode_score = round(max(0.01, min(0.99, raw_episode_score)), 4)
 
         return Observation(
             current_day=s.current_day,
@@ -527,7 +529,7 @@ class StudentTaskManagerEnv:
             completed_count=len(completed_ids),
             overdue_count=len(overdue_ids),
             pending_count=len(pending_ids),
-            episode_score_so_far=round(min(0.99, max(0.01, episode_score)), 4),
+            episode_score_so_far=safe_episode_score,
             steps_taken=s.steps_taken,
             max_steps=s.max_steps,
             cumulative_reward=round(s.cumulative_reward, 4),

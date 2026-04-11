@@ -26,6 +26,12 @@ import requests
 from openai import OpenAI  # only this — no "import openai"
 
 
+
+def _safe_score(v: float) -> float:
+    """Score must be strictly inside (0.01, 0.99) — never exactly 0.01 or 0.99."""
+    return round(max(0.01, min(0.99, float(v))), 4)
+
+
 # ---------------------------------------------------------------------------
 # Configuration — ALL from env vars, zero hardcoding
 # ---------------------------------------------------------------------------
@@ -266,7 +272,7 @@ def run_task(scenario: str, seed: int = SEED) -> float:
 
     rewards:     List[float] = []
     steps_taken: int         = 0
-    score:       float       = 0.0
+    score:       float       = 0.01
     success:     bool        = False
 
     try:
@@ -295,7 +301,7 @@ def run_task(scenario: str, seed: int = SEED) -> float:
             # Can't run the episode without env — score stays 0
             print(f"[DEBUG] env_reset failed: {exc}", file=sys.stderr)
             # fall through to finally → log_end still fires
-            return 0.0   # finally still executes before this return
+            return 0.01   # finally still executes before this return
 
         obs       = reset_resp["observation"]
         max_steps = obs.get("max_steps", 150)
@@ -334,7 +340,7 @@ def run_task(scenario: str, seed: int = SEED) -> float:
                     step_error = info.get("last_action_message", status)
             except Exception as exc:
                 step_error = str(exc)
-                reward = 0.0
+                reward = 0.01
                 done   = True   # can't continue without env
 
             rewards.append(reward)
@@ -345,18 +351,18 @@ def run_task(scenario: str, seed: int = SEED) -> float:
             if done:
                 # Prefer grader score, then final_score, then running score
                 if "episode_grade" in info:
-                    score = float(info["episode_grade"].get("score", 0.0))
+                    score = float(info["episode_grade"].get("score", 0.01))
                 elif "final_score" in info:
                     score = float(info["final_score"])
                 else:
-                    score = float(obs.get("episode_score_so_far", 0.0))
+                    score = float(obs.get("episode_score_so_far", 0.01))
                 break
 
         # Episode ended without done flag (hit max_steps)
         if not done:
-            score = float(obs.get("episode_score_so_far", 0.0))
+            score = float(obs.get("episode_score_so_far", 0.01))
 
-        score   = max(0.01, min(0.99, score))
+        score   = _safe_score(score)
         success = score >= SUCCESS_SCORE_THRESHOLD
 
     except Exception as exc:

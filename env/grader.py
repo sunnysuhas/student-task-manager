@@ -200,10 +200,10 @@ def grade(state: EnvironmentState) -> Dict[str, Any]:
     )
 
     # Clamp to strictly within (0, 1)
-    final_score = max(0.01, min(0.99, raw_score))
+    final_score = round(max(0.01, min(0.99, raw_score)), 4)
 
     return {
-        "score": round(final_score, 4),
+        "score": final_score,
         "breakdown": {
             "completion": {
                 "weight": W_COMPLETION,
