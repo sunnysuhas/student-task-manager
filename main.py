@@ -129,8 +129,8 @@ def metadata() -> Dict[str, Any]:
         "tasks": ["easy", "medium", "hard"],
         "action_types": ["select_task", "allocate_time", "mark_complete", "skip_day", "reorder_priority"],
         "reward_type": "dense",
-        "reward_range": [-0.30, 1.0],
-        "score_range": [0.0, 1.0],
+        "reward_range": [0.01, 0.99],
+        "score_range": [0.01, 0.99],
         "tags": ["scheduling", "prioritization", "academic", "rl-environment"],
     }
 
@@ -239,9 +239,18 @@ def step(request: StepRequest) -> StepResponse:
     except RuntimeError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
+    # ✅ ADDED: safe clamp at the API boundary — last line of defense
+    safe_reward = max(0.01, min(0.99, reward_breakdown.total))
+
+    # ✅ ADDED: clamp final_score inside info too
+    if "final_score" in info:
+        info["final_score"] = max(0.01, min(0.99, float(info["final_score"])))
+    if "episode_grade" in info and "score" in info["episode_grade"]:
+        info["episode_grade"]["score"] = max(0.01, min(0.99, float(info["episode_grade"]["score"])))
+
     return StepResponse(
         observation=obs.model_dump(),
-        reward=reward_breakdown.total,
+        reward=safe_reward,
         reward_breakdown=reward_breakdown.model_dump(),
         done=done,
         info=info,
@@ -287,7 +296,7 @@ def list_tasks() -> Dict[str, Any]:
             "description": cfg["description"],
             "difficulty": name,
             "grader": "deterministic",
-            "score_range": [0.0, 1.0],
+            "score_range": [0.01, 0.99],
             "total_days": cfg["total_days"],
             "max_hours_per_day": cfg["max_hours_per_day"],
             "max_steps": cfg["max_steps"],

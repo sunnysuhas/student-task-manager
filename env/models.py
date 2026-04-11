@@ -173,7 +173,7 @@ class Observation(BaseModel):
     overdue_count: int = Field(default=0)
     pending_count: int = Field(default=0)
 
-    episode_score_so_far: float = Field(default=0.0, ge=0.0, le=1.0)
+    episode_score_so_far: float = Field(default=0.01, ge=0.01, le=0.99)
     steps_taken: int = Field(default=0)
     max_steps: int = Field(...)
     cumulative_reward: float = Field(default=0.0)
@@ -195,7 +195,7 @@ class Observation(BaseModel):
 class RewardBreakdown(BaseModel):
     """Detailed breakdown of the reward signal."""
 
-    total: float = Field(..., ge=0.0, le=1.0, description="Total reward for this step, clamped to [0,1]")
+    total: float = Field(..., ge=0.01, le=0.99, description="Total reward for this step, clamped to [0,1]")
 
     task_completion_bonus: float = Field(default=0.0, description="Reward for completing a task")
     early_completion_bonus: float = Field(default=0.0, description="Extra reward for completing before deadline")
