@@ -106,13 +106,13 @@ class StudentTaskManagerEnv:
 
         if s.episode_done:
             obs = self._build_observation("error", "Episode already done. Call reset().")
-            reward = RewardBreakdown(total=0.0)
+            reward = RewardBreakdown(total=0.01)
             return obs, reward, True, {"error": "Episode done"}
 
         # Parse action
         parsed_action, parse_error = self._parse_action(action)
         if parse_error:
-            reward = RewardBreakdown(total=0.0, raw_total=0.0)
+            reward = RewardBreakdown(total=0.01, raw_total=0.0)
             s.steps_taken += 1
             s.action_history.append({"step": s.steps_taken, "action": str(action), "error": parse_error})
             obs = self._build_observation("invalid", parse_error)
@@ -193,12 +193,12 @@ class StudentTaskManagerEnv:
         task_id = action.task_id
 
         if task_id not in s.tasks:
-            r = RewardBreakdown(total=0.0, raw_total=0.0)
+            r = RewardBreakdown(total=0.01, raw_total=0.0)
             return r, "error", f"Task '{task_id}' not found.", {}
 
         task = s.tasks[task_id]
         if task.is_completed:
-            r = RewardBreakdown(total=0.0, raw_total=0.0)
+            r = RewardBreakdown(total=0.01, raw_total=0.0)
             return r, "warning", f"Task '{task_id}' is already completed.", {}
 
         # Check dependencies
@@ -206,7 +206,7 @@ class StudentTaskManagerEnv:
         if not dep_ok:
             penalty = PENALTY_DEP_VIOLATION
             raw = penalty
-            total = max(0.0, min(1.0, 0.5 + penalty))
+            total = max(0.01, min(0.99, 0.5 + penalty))
             r = RewardBreakdown(total=total, raw_total=raw, dependency_violation_penalty=penalty)
             return r, "dependency_blocked", (
                 f"Cannot select '{task_id}': unmet dependencies {unmet}."
@@ -224,13 +224,13 @@ class StudentTaskManagerEnv:
         hours = action.hours or 1.0
 
         if task_id not in s.tasks:
-            r = RewardBreakdown(total=0.0, raw_total=0.0)
+            r = RewardBreakdown(total=0.01, raw_total=0.0)
             return r, "error", f"Task '{task_id}' not found.", {}
 
         task = s.tasks[task_id]
 
         if task.is_completed:
-            r = RewardBreakdown(total=0.0, raw_total=0.0)
+            r = RewardBreakdown(total=0.01, raw_total=0.0)
             return r, "warning", f"Task '{task_id}' already completed, cannot allocate time.", {}
 
         # Check dependencies
@@ -238,7 +238,7 @@ class StudentTaskManagerEnv:
         if not dep_ok:
             penalty = PENALTY_DEP_VIOLATION
             raw = penalty
-            total = max(0.0, min(1.0, 0.5 + penalty))
+            total = max(0.01, min(0.99, 0.5 + penalty))
             r = RewardBreakdown(total=total, raw_total=raw, dependency_violation_penalty=penalty)
             return r, "dependency_blocked", (
                 f"Task '{task_id}' is blocked by {unmet}."
@@ -269,7 +269,7 @@ class StudentTaskManagerEnv:
         raw, breakdown_kwargs = self._compute_allocate_reward(
             task, effective_hours, just_completed, s
         )
-        total = max(0.0, min(1.0, raw))
+        total = max(0.01, min(0.99, raw))
         r = RewardBreakdown(total=total, raw_total=raw, **breakdown_kwargs)
         msg = (
             f"Allocated {effective_hours:.2f}h to '{task_id}'. "
@@ -285,16 +285,16 @@ class StudentTaskManagerEnv:
         task_id = action.task_id
 
         if task_id not in s.tasks:
-            r = RewardBreakdown(total=0.0, raw_total=0.0)
+            r = RewardBreakdown(total=0.01, raw_total=0.0)
             return r, "error", f"Task '{task_id}' not found.", {}
 
         task = s.tasks[task_id]
         if task.is_completed:
-            r = RewardBreakdown(total=0.0, raw_total=0.0)
+            r = RewardBreakdown(total=0.01, raw_total=0.0)
             return r, "warning", f"Task '{task_id}' already marked complete.", {}
 
         if task.progress < 80.0:
-            r = RewardBreakdown(total=0.0, raw_total=0.0)
+            r = RewardBreakdown(total=0.01, raw_total=0.0)
             return r, "error", (
                 f"Task '{task_id}' only {task.progress:.1f}% done. "
                 "Must reach ≥80% before marking complete."
@@ -309,7 +309,7 @@ class StudentTaskManagerEnv:
         completion_bonus = REWARD_TASK_COMPLETE
         early_bonus = min(REWARD_EARLY_BONUS_MAX, days_early * 0.05) if on_time else 0.0
         raw = completion_bonus + early_bonus
-        total = max(0.0, min(1.0, raw))
+        total = max(0.01, min(0.99, raw))
 
         r = RewardBreakdown(
             total=total,
@@ -329,7 +329,7 @@ class StudentTaskManagerEnv:
         # Advance to next day
         self._end_day()
         penalty = PENALTY_IDLE
-        total = max(0.0, min(1.0, 0.5 + penalty))  # 0.45 – slight penalty
+        total = max(0.01, min(0.99, 0.5 + penalty))  # 0.45 – slight penalty
         r = RewardBreakdown(total=total, raw_total=penalty, idle_penalty=penalty)
         return r, "success", f"Skipped to day {s.current_day}.", {}
 
@@ -342,7 +342,7 @@ class StudentTaskManagerEnv:
         # Validate all IDs exist
         unknown = [tid for tid in new_order if tid not in s.tasks]
         if unknown:
-            r = RewardBreakdown(total=0.0, raw_total=0.0)
+            r = RewardBreakdown(total=0.01, raw_total=0.0)
             return r, "error", f"Unknown task IDs in priority order: {unknown}.", {}
 
         # Check that all tasks are included (warn but don't fail if some missing)
@@ -527,7 +527,7 @@ class StudentTaskManagerEnv:
             completed_count=len(completed_ids),
             overdue_count=len(overdue_ids),
             pending_count=len(pending_ids),
-            episode_score_so_far=round(min(1.0, max(0.0, episode_score)), 4),
+            episode_score_so_far=round(min(0.99, max(0.01, episode_score)), 4),
             steps_taken=s.steps_taken,
             max_steps=s.max_steps,
             cumulative_reward=round(s.cumulative_reward, 4),
