@@ -356,7 +356,7 @@ def run_task(scenario: str, seed: int = SEED) -> float:
         if not done:
             score = float(obs.get("episode_score_so_far", 0.0))
 
-        score   = max(0.0, min(1.0, score))
+        score   = max(0.01, min(0.99, score))
         success = score >= SUCCESS_SCORE_THRESHOLD
 
     except Exception as exc:
