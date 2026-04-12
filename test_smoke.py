@@ -14,9 +14,9 @@ errors = []
 def check(condition, msg):
     if not condition:
         errors.append(f"FAIL: {msg}")
-        print(f"  ✗ {msg}")
+        print(f"  [X] {msg}")
     else:
-        print(f"  ✓ {msg}")
+        print(f"  [OK] {msg}")
 
 # ─── Easy Scenario ────────────────────────────────────────────────────────
 print("=== EASY Scenario ===")
@@ -39,7 +39,7 @@ check(e4_task.progress >= 99.0, f"E4 progress=100% after full allocation: {e4_ta
 # Test invalid task
 action_inv = {"action_type": "allocate_time", "task_id": "ZZZZ", "hours": 1.0}
 obs, reward, done, info = env.step(action_inv)
-check(reward.total == 0.01, "Invalid task gives 0.01 reward")
+check(reward.total == 1e-6, "Invalid task gives 1e-6 reward")
 check(info["last_action_status"] == "error", "Invalid task gives error status")
 
 # skip_day

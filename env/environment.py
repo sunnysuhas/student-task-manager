@@ -23,7 +23,7 @@ from env.models import (
     TaskSummary,
 )
 from env.tasks import get_scenario
-from env.grader import grade
+from env.grader import grade, safe_score
 
 
 # ---------------------------------------------------------------------------
